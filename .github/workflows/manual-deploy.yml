@@ -1,0 +1,72 @@
+name: Deploy (Manual)
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      TF_STATE_BUCKET: ${{ vars.TF_STATE_BUCKET }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+      - run: python -m pip install -r requirements.txt
+      - run: python -m pytest -q
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.10.5
+      - name: Validate deployment configuration
+        run: |
+          terraform fmt -check -recursive terraform
+          terraform -chdir=terraform init -backend=false -input=false
+          terraform -chdir=terraform validate
+      - name: Initialize remote state
+        run: >-
+          terraform -chdir=terraform init -reconfigure -input=false
+          -backend-config="bucket=${TF_STATE_BUCKET}"
+          -backend-config="key=subledger/${GITHUB_REPOSITORY}/terraform.tfstate"
+          -backend-config="region=${AWS_REGION}"
+          -backend-config="encrypt=true"
+          -backend-config="use_lockfile=true"
+      - name: Create ECR repository
+        run: >-
+          terraform -chdir=terraform apply -input=false -auto-approve
+          -target=module.ecr
+          -var="aws_region=${AWS_REGION}"
+          -var="enable_app_runner=false"
+      - name: Read ECR repository URL
+        run: |
+          echo "ECR_REPOSITORY_URL=$(terraform -chdir=terraform output -raw ecr_repository_url)" >> "$GITHUB_ENV"
+          echo "IMAGE_TAG=${GITHUB_SHA}-${GITHUB_RUN_ID}" >> "$GITHUB_ENV"
+      - name: Log in to Amazon ECR
+        run: |
+          registry="${ECR_REPOSITORY_URL%%/*}"
+          aws ecr get-login-password --region "$AWS_REGION" | docker login --username AWS --password-stdin "$registry"
+      - name: Build and push image
+        run: |
+          docker build --tag "${ECR_REPOSITORY_URL}:${IMAGE_TAG}" .
+          docker push "${ECR_REPOSITORY_URL}:${IMAGE_TAG}"
+      - name: Deploy App Runner service
+        env:
+          DATABASE_URL_SECRET_ARN: ${{ vars.DATABASE_URL_SECRET_ARN }}
+        run: >-
+          terraform -chdir=terraform apply -input=false -auto-approve
+          -var="aws_region=${AWS_REGION}"
+          -var="image_tag=${IMAGE_TAG}"
+          -var="enable_app_runner=true"
+          -var="database_url_secret_arn=${DATABASE_URL_SECRET_ARN}"
+      - name: Show service URL
+        run: terraform -chdir=terraform output app_runner_service_url
