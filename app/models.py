@@ -38,6 +38,7 @@ class Customer(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
     subscriptions: Mapped[list["Subscription"]] = relationship(back_populates="customer")
+    invoices: Mapped[list["Invoice"]] = relationship(back_populates="customer")
     ledger_entries: Mapped[list["LedgerEntry"]] = relationship(back_populates="customer")
 
 
@@ -87,6 +88,7 @@ class Invoice(Base):
     due_date: Mapped[date] = mapped_column(Date)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
 
+    customer: Mapped[Customer] = relationship(back_populates="invoices")
     subscription: Mapped[Subscription] = relationship(back_populates="invoices")
     payment_attempts: Mapped[list["PaymentAttempt"]] = relationship(back_populates="invoice")
     ledger_entries: Mapped[list["LedgerEntry"]] = relationship(back_populates="invoice")

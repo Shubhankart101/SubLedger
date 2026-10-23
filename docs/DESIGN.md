@@ -1,5 +1,24 @@
 # SubLedger Low-Level Design
 
+## Learning Goals From the Sessions
+
+| Session concept | How it is demonstrated in SubLedger |
+| --- | --- |
+| Low-level design | The billing domain is decomposed into entities, services, repositories, API routes, and workflows before implementation. |
+| SOLID principles | Plan, customer, subscription, invoice, payment, and ledger responsibilities are separated into focused services and models. |
+| Repository Pattern | Database reads and writes are isolated in repository classes instead of being embedded in routes or business workflows. |
+| Service layer | Business rules and multi-step billing workflows live in services, not controllers/routes. |
+| Dependency management | FastAPI dependencies inject request-scoped database sessions and repositories into services. |
+| Production basics | Environment-based configuration, `.env.example`, Docker, CI validation, and documented run instructions provide a production-oriented foundation. |
+
+## Product Scope
+
+| In scope | Out of scope |
+| --- | --- |
+| Plan management, customer management, and subscription lifecycle. | Real payment gateway integration; payment status is recorded by the API and no funds are processed. |
+| Invoice generation, payment-attempt recording, and an append-only ledger. | Frontend UI, complex taxation, and proration. |
+| Billing validation, API documentation, and local Docker setup. | Authentication/RBAC in the base implementation; it may be added as a bonus. |
+
 ## Architecture
 
 The HTTP layer validates requests and selects services through FastAPI dependencies. Those dependencies inject a request-scoped SQLAlchemy session and the required repositories. Services own business workflows and transaction boundaries. Repositories own SQLAlchemy queries and persistence operations. SQLAlchemy models map the domain to relational tables; Pydantic schemas define the API contract. Configuration and session creation are centralized in `app/core` and `app/db.py`.
@@ -79,12 +98,14 @@ erDiagram
 
 | Service | Owns | Does not own |
 | --- | --- | --- |
-| `PlanService` | Plan create/update/list/deactivate and unique-name checks | Subscription decisions |
-| `CustomerService` | Customer create/list/fetch and email uniqueness | Ledger writes |
-| `SubscriptionService` | Customer/plan validation, active-plan check, duplicate active subscription prevention, cancellation | Invoice pricing |
-| `InvoiceService` | Active subscription validation, billing period, price snapshot, invoice status initialization | Payment outcomes |
-| `PaymentService` | Payment validation, attempt creation, invoice balance/status updates | Gateway calls or settlement |
+| `PlanService` | Plan create/update/list/deactivate and duplicate-name conflicts | Subscription eligibility |
+| `CustomerService` | Customer create/list/fetch, email normalization, and duplicate-email checks | Ledger writes |
+| `SubscriptionService` | Customer/plan existence, active-plan check, duplicate active subscription prevention, creation, and cancellation | Invoice pricing |
+| `InvoiceService` | Active subscription validation, billing period and price snapshot, invoice creation, next billing date advancement, and invoice-created ledger request | Payment outcomes |
+| `PaymentService` | Currency/balance validation, attempt creation, successful invoice balance/status updates, failure handling, and payment ledger request | Gateway calls or settlement |
 | `LedgerService` | Append ledger entries and customer history reads | Mutating/deleting existing entries |
+
+Plan price and billing-cycle request validation is performed by `PlanCreate` (`price > 0`, `monthly` or `yearly`); the database also checks positive plan price. Service responsibilities above distinguish those boundary validations from workflow and state-transition logic.
 
 ## Repositories
 

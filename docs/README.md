@@ -12,4 +12,4 @@ SubLedger is a layered billing API for managing plans, customers, subscriptions,
 - [Terraform and AWS deployment](terraform-deployment.md): modules, bootstrapping, GitHub configuration, and cleanup.
 - [Security and operations](security-operations.md): secrets, database persistence, reliability, and production follow-up.
 
-The original LLD, ERD, service/repository tables, and core invoice/payment sequences are in the repository [DESIGN.md](../DESIGN.md).
+The original LLD, ERD, service/repository tables, and core invoice/payment sequences are in [DESIGN.md](DESIGN.md).

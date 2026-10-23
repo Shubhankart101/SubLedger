@@ -25,7 +25,7 @@ Routes handle HTTP transport and status models, not billing decisions. `app/api/
 - `PaymentAttempt`: immutable record of a successful or failed payment attempt.
 - `LedgerEntry`: append-oriented audit event with a reference to its source operation.
 
-The entity relationships and ownership tables are maintained in [DESIGN.md](../DESIGN.md).
+The entity relationships and ownership tables are maintained in [DESIGN.md](DESIGN.md).
 
 ## Transaction Boundaries
 

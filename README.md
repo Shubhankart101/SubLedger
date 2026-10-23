@@ -50,7 +50,7 @@ Amounts use decimal currency values with two fractional digits. Payment `status`
 
 ## Design
 
-See [DESIGN.md](DESIGN.md) for the ERD, service and repository responsibilities, business-rule ownership, Repository Pattern rationale, and invoice/payment flows.
+See [DESIGN.md](docs/DESIGN.md) for the ERD, service and repository responsibilities, business-rule ownership, Repository Pattern rationale, and invoice/payment flows.
 
 ## Documentation
 
